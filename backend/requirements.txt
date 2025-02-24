@@ -1,0 +1,9 @@
+FastAPI
+SQLModel
+psycopg2-binary
+uvicorn
+alembic
+python-dotenv
+httpx
+pydantic
+fastapi-users[sqlalchemy]
