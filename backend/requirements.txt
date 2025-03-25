@@ -7,3 +7,5 @@ python-dotenv
 httpx
 pydantic
 fastapi-users[sqlalchemy]
+torch
+timm
