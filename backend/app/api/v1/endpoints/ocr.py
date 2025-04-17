@@ -5,8 +5,8 @@ from io import BytesIO
 import numpy as np
 import requests
 import torch
-from crnn import CRNN
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from app.models.crnn import CRNN
+from fastapi import FastAPI, File, HTTPException, UploadFile, APIRouter
 from fastapi.responses import Response
 from PIL import Image
 from ray import serve
@@ -20,11 +20,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 app = FastAPI()
 
+TEXT_DETECTION_MODEL = 'backend/app/models/weights/best.pt'
+OCR_MODEL = 'backend/app/models/weights/ocr_crnn.pt'
 
-TEXT_DETECTION_MODEL = 'backend\app\models\weights\best.pt'
-OCR_MODEL = 'backend\app\models\weights\ocr_crnn.pt'
-
-CHARS = '0123456789abcdefghijklmnopqrstuvwxyz'
+CHARS = '0123456789abcdefghijklmnopqrstuvwxyz-'
 CHAR_TO_IDX = {char: idx + 1 for idx, char in enumerate(sorted(CHARS))}
 IDX_TO_CHAR = {idx: char for char, idx in CHAR_TO_IDX.items()}
 
@@ -69,7 +68,7 @@ class APIIngress:
             )
         
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"{e}"))
+            raise HTTPException(status_code=500, detail=f"{e}")
         
 
     @app.get("/ocr")
@@ -184,13 +183,15 @@ class OCRHandler:
 det_model = YOLO(TEXT_DETECTION_MODEL)
 # 
 reg_model = CRNN(
+    vocab_size=len(CHARS),
     hidden_size=HIDDEN_SIZE,
     n_layers=N_LAYERS,
-    dropout_prob=DROPOUT_PROB,
-    UNFREEZE_LAYERS=UNFREEZE_LAYERS,
+    dropout=DROPOUT_PROB,
+    unfreeze_layers=UNFREEZE_LAYERS,
 )
 
-reg_model.load_state_dict(torch.load(OCR_MODEL))
+# Load the model weights onto the CPU
+reg_model.load_state_dict(torch.load(OCR_MODEL, map_location=torch.device('cpu')))
 reg_model.eval()
 
 ## Create the service

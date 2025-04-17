@@ -10,7 +10,7 @@ class CRNN(nn.Module):
 
         backbone = timm.create_model("resnet34", in_chans=1, pretrained=True)
         modules = list(backbone.children())[:-2]
-        modules.append(nn.AdaptiveAvgPool2d(1, None))
+        modules.append(nn.AdaptiveAvgPool2d((1, None)))
         self.backbone = nn.Sequential(*modules)
 
         for parameter in self.backbone[-unfreeze_layers:].parameters():
@@ -57,7 +57,7 @@ class CRNN(nn.Module):
         torch.save(self.state_dict(), path)
     
     def load_model(self, path):
-        self.load_state_dict(torch.load(path))
+        self.load_state_dict(torch.load(path), map_location=torch.device('cpu'))
         self.eval()
 
 

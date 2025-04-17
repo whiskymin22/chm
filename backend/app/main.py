@@ -12,7 +12,7 @@ from ray import serve
 from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, colors
 import logging
-from app.api.v1.endpoints import router as api_router
+from backend.app.api.v1.endpoints import router as api_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -9,3 +9,5 @@ pydantic
 fastapi-users[sqlalchemy]
 torch
 timm
+ray[serve]
+ultralytics
