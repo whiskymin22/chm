@@ -127,18 +127,79 @@ class OCRHandler:
 
 
 
-    def process_image(self, image_path):
-        image = Image.open(image_path)
-        image = self.transform(image).unsqueeze(0).to(self.device)
+    def process_image(self, image_path:str):
+        try:
+            bboxes, classes, names, confs = self.text_detection(image_path)
 
-        # Perform text detection
-        det_results = self.det_model(image)
+            image = Image.open(image_path)
+            predictions = []
 
-        # Perform OCR
-        prediction = self.reg_model(det_results)
-
-        return prediction
+            for bbox, cls_idx, conf in zip(bboxes, classes, confs):
+                if cls_idx == 0:
+                    continue
+                
+                x1, y1, x2, y2 = bbox
+                name = names[int(cls_idx)]
+                cropped_image = image.crop((x1, y1, x2, y2))
+                text = self.text_recognition(cropped_image)
+                predictions.append(
+                    {
+                        "bbox": bbox,
+                        "class": name,
+                        "confidence": conf,
+                        "text": text,
+                    }
+                )
+            return predictions
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"{e}")
     
+    def draw_predictions(self, image, predictions):
+        image_array = np.array(image)
+        annotator = Annotator(image_array, font="Arial.ttf", pil=False)
+        for prediction in predictions:
+            bbox = prediction["bbox"]
+            text = prediction["text"]
+            ###
+            color = colors(prediction["class"])
+            label = f"{prediction['class'][:3]}{prediction['confidence']:.2f}: {text}"
+            annotator.box_label(bbox, label, color=color)
+        return Image.fromarray(annotator.result)
+    
+    def decode_prediction(self, encoded_sequences, idx_to_char, blank_idx="-"):
+        decoded_sequenses = []
+        for seq in encoded_sequences:
+            decoded_seq = []
+            prev_char = None 
+            for idx in seq:
+                char = idx_to_char[int(idx)]
+                if char != blank_idx:
+                    if char != prev_char or prev_char == blank_char:
+                        decoded_seq.append(char)
+                prev_char = char # update previous character
+            decoded_sequenses.append("".join(decoded_seq))
+        return decoded_sequenses
+        
+
+det_model = YOLO(TEXT_DETECTION_MODEL)
+# 
+reg_model = CRNN(
+    hidden_size=HIDDEN_SIZE,
+    n_layers=N_LAYERS,
+    dropout_prob=DROPOUT_PROB,
+    UNFREEZE_LAYERS=UNFREEZE_LAYERS,
+)
+
+reg_model.load_state_dict(torch.load(OCR_MODEL))
+reg_model.eval()
+
+## Create the service
+entrypoint = APIIngress.bind(
+    OCRHandler.bind(
+        reg_model=reg_model,
+        det_model=det_model,
+    )
+)
 
 
 
